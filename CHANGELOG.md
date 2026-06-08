@@ -1,3 +1,8 @@
+## 0.4.2+1
+
+### Added
+- Added Swift Package Manager support for the iOS and macOS plugins while retaining CocoaPods compatibility.
+
 ## 0.4.2
 
 ### Fixed

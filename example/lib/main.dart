@@ -121,11 +121,11 @@ class _HomeState extends State<Home> {
                   onPressed: () async {
                     await externalDisplay.connect();
                     externalDisplay.waitingTransferParametersReady(onReady: () {
-                      print("First transfer parameters ready!");
+                      debugPrint("First transfer parameters ready!");
                       externalDisplay.sendParameters(
                           action: "testing", value: {"c": "cat", "d": "dog"});
                     }, onError: () {
-                      print("First transfer parameters fail!");
+                      debugPrint("First transfer parameters fail!");
                     });
                     setState(() {
                       resolution =
