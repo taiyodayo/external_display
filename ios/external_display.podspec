@@ -15,7 +15,7 @@ A new Flutter plugin project.
   s.source           = { :path => '.' }
   s.source_files = 'external_display/Sources/external_display/**/*.swift'
   s.dependency 'Flutter'
-  s.platform = :ios, '11.0'
+  s.platform = :ios, '16.0'
   s.resource_bundles = {'external_display_privacy' => ['external_display/Sources/external_display/PrivacyInfo.xcprivacy']}
 
   # Flutter.framework does not contain a i386 slice.

@@ -6,7 +6,9 @@ import PackageDescription
 let package = Package(
     name: "external_display",
     platforms: [
-        .iOS("11.0")
+        // Scene-lifecycle external display (UIWindowScene /
+        // .windowExternalDisplayNonInteractive) is iOS 16+.
+        .iOS("16.0")
     ],
     products: [
         .library(name: "external-display", targets: ["external_display"])
