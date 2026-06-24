@@ -50,14 +50,27 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                 let screenIndex = args?["targetScreen"] as? Int ?? NSScreen.screens.count-1
  
                 DispatchQueue.main.async {
-                    var frame = NSScreen.screens[0].frame
-                    if (screenIndex > 0 || screenIndex < NSScreen.screens.count) {
-                        frame = NSScreen.screens[screenIndex].frame
-                        frame.origin.y = frame.maxY
-                    } else {
-                        frame = NSScreen.screens[NSScreen.screens.count-1].frame
-                        frame.origin.y = frame.maxY
-                    }
+                    let screens = NSScreen.screens
+                    // Clamp the requested index so a bad/absent value can't crash.
+                    let index = max(0, min(screenIndex, screens.count - 1))
+                    let targetScreen = screens[index]
+
+                    // Place the audience window ON the target screen. Fullscreen
+                    // covers it; windowed is clamped to the visible frame and
+                    // centred, so on a single-monitor Mac (no projector) it never
+                    // lands off-screen. The old `origin.y = maxY` pushed the window
+                    // above the screen — invisible on a one-screen setup.
+                    let visible = targetScreen.visibleFrame
+                    let w = min(CGFloat(windowWidth), visible.width)
+                    let h = min(CGFloat(windowHeight), visible.height)
+                    let frame = fullscreen
+                        ? targetScreen.frame
+                        : NSRect(
+                            x: visible.origin.x + (visible.width - w) / 2,
+                            y: visible.origin.y + (visible.height - h) / 2,
+                            width: w,
+                            height: h
+                        )
 
                     if (ExternalDisplayPlugin.externalWindow == nil) {
                         ExternalDisplayPlugin.externalWindow = NSWindow(
@@ -65,7 +78,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                             styleMask: [.titled, .closable, .miniaturizable, .resizable, .borderless],
                             backing: .buffered,
                             defer: true,
-                            screen: NSScreen.screens[screenIndex]
+                            screen: targetScreen
                         )
 
                         let flutterEngine = FlutterEngine(name: "External Window", project: FlutterDartProject())
@@ -101,12 +114,10 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                     }
                         
                     ExternalDisplayPlugin.externalWindow?.orderFront(nil)
-                    ExternalDisplayPlugin.externalWindow?.setFrameOrigin(frame.origin)
-                    
+                    ExternalDisplayPlugin.externalWindow?.setFrame(frame, display: true)
+
                     if (fullscreen) {
                         ExternalDisplayPlugin.externalWindow?.toggleFullScreen(nil)
-                    } else {
-                        ExternalDisplayPlugin.externalWindow?.setContentSize(NSSize(width: windowWidth, height: windowHeight))
                     }
 
                     ExternalDisplayPlugin.mainViewEvents?(true)
