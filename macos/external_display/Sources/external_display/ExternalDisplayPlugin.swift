@@ -99,11 +99,10 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                         
                         NotificationCenter.default.addObserver(
                             forName: NSWindow.willCloseNotification,
-                            object: nil, // 监听所有窗口
+                            object: nil,
                             queue: .main
                         ) { notification in
-                            let window = notification.object as? NSWindow
-                            if (window != ExternalDisplayPlugin.externalWindow) {
+                            if ExternalDisplayPlugin.closesExternalWindow(whenClosing: notification.object as? NSWindow) {
                                 ExternalDisplayPlugin.externalWindow?.close()
                             }
                         }
@@ -176,6 +175,19 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
     
     public func windowWillClose(_: Notification) {
         ExternalDisplayPlugin.mainViewEvents?(false)
+    }
+
+    /// Whether the external window closes with `window`: only when `window` is another
+    /// window that hosts a Flutter view, i.e. the app's own window.
+    ///
+    /// Every other close is ignored. AppKit closes private windows of its own (macOS
+    /// 27.2.1 closes one while a window leaves full screen), and panels and dialogs
+    /// close all the time. Closing the external window for one of those took it away
+    /// from the audience, and in the middle of its own full-screen exit AppKit raised
+    /// `NSInternalInconsistencyException` (taiyodayo/maiTalk#1943).
+    static func closesExternalWindow(whenClosing window: NSWindow?) -> Bool {
+        guard let window, window !== externalWindow else { return false }
+        return window.contentViewController is FlutterViewController
     }
 }
 
