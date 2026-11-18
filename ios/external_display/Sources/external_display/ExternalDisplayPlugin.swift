@@ -18,35 +18,6 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     // system mirrors instead. Non-nil here == an external display is attached.
     public static var externalWindowScene:UIWindowScene?
 
-    // From iOS 27 the system connects the external-display scene only for an app
-    // that has registered a scene accessory for it; before, declaring the scene in
-    // Info.plist was enough. Held for the life of the process and never disabled:
-    // on plug the system can connect the scene, disconnect it and connect it again
-    // within 100 ms, and the second connection needs the accessory still enabled.
-    // `AnyObject` because the registration type exists only from iOS 27.
-    static var sceneAccessoryRegistration:AnyObject?
-
-    @available(iOS 27.0, *)
-    static func registerSceneAccessory() {
-        guard sceneAccessoryRegistration == nil else { return }
-        let host = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .filter { $0.session.role == .windowApplication }
-            .flatMap { $0.windows }
-            .compactMap { $0.rootViewController }
-            .first
-        guard let host else {
-            NSLog("external_display: no view controller to register the scene accessory on; an external display will stay empty")
-            return
-        }
-        let configuration = UISceneConfiguration()
-        configuration.delegateClass = ExternalDisplaySceneDelegate.self
-        let registration = host.registerSceneAccessory(
-            UISceneAccessory.externalNonInteractive(sceneConfiguration: configuration))
-        registration.isEnabled = true
-        sceneAccessoryRegistration = registration
-    }
-
     // 初始化
     public static func register(with registrar: FlutterPluginRegistrar) {
         // 建立 Flutter EventChannel
@@ -200,10 +171,6 @@ public class MainViewHandler: NSObject, FlutterStreamHandler {
             if (ProcessInfo.processInfo.isiOSAppOnMac) {
                 return nil
             }
-        }
-
-        if #available(iOS 27.0, *) {
-            ExternalDisplayPlugin.registerSceneAccessory()
         }
 
         // Catch-up: the external scene may already be connected before Dart
