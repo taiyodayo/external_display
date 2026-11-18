@@ -266,11 +266,14 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
     }
 
     /// 在已連線 scenes 中尋找外接非互動 WindowScene
-    @available(iOS 27.0, *)
     static func findExternalWindowScene() -> UIWindowScene? {
         for scene in UIApplication.shared.connectedScenes {
             guard let windowScene = scene as? UIWindowScene else { continue }
-            if windowScene.session.role == .windowExternalDisplayNonInteractive {
+            if #available(iOS 16.0, *) {
+                if windowScene.session.role == .windowExternalDisplayNonInteractive {
+                    return windowScene
+                }
+            } else if windowScene.session.role == .windowExternalDisplay {
                 return windowScene
             }
         }
@@ -310,9 +313,18 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
         registerGeneratedPlugin?(flutterViewController)
         flutterViewController.view.frame = frame
 
-        let window = UIWindow(frame: frame)
+        // In an app on the UIScene lifecycle a window is shown only by the
+        // UIWindowScene it belongs to: `UIWindow.screen` is ignored and the display
+        // stays black. When the app declares a scene for the external display role in
+        // Info.plist, the system has connected that scene by now.
+        let window: UIWindow
+        if let windowScene = findExternalWindowScene() {
+            window = UIWindow(windowScene: windowScene)
+        } else {
+            window = UIWindow(frame: frame)
+            window.screen = externalScreen
+        }
         window.rootViewController = flutterViewController
-        window.screen = externalScreen
         window.isHidden = false
         externalWindow = window
 

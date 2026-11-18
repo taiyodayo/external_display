@@ -92,9 +92,23 @@ iOS 27 / Xcode 27 requires the `UIScene` lifecycle. Add an Application Scene Man
         <string>Main</string>
       </dict>
     </array>
+    <!-- iOS 15–26: the scene the external window is shown in -->
+    <key>UIWindowSceneSessionRoleExternalDisplayNonInteractive</key>
+    <array>
+      <dict>
+        <key>UISceneClassName</key>
+        <string>UIWindowScene</string>
+        <key>UISceneDelegateClassName</key>
+        <string>ExternalDisplaySceneDelegate</string>
+        <key>UISceneConfigurationName</key>
+        <string>external</string>
+      </dict>
+    </array>
   </dict>
 </dict>
 ```
+
+On iOS 15–26 the second entry is required: under the UIScene lifecycle a window is shown only by the scene it belongs to, and without a scene for the external display the screen stays black while `connect()` still returns `true`. iOS 27 does not use the entry.
 
 #### 2. Register plugins for UIScene (required)
 
@@ -135,7 +149,7 @@ Starting with **iOS 27**, custom content on a non-interactive external display i
 This plugin handles that for you:
 
 * On iOS 27+, `connect()` registers `UISceneAccessory.externalNonInteractive` on the main `FlutterViewController`, enables it, and attaches a `UIWindow` in `ExternalDisplaySceneDelegate` when the system connects the external scene.
-* On iOS 15–26, the plugin keeps the legacy `UIScreen` + `UIWindow.screen` path.
+* On iOS 15–26, the plugin shows its `UIWindow` in the external display scene declared in `Info.plist` (step 1), and falls back to the legacy `UIWindow.screen` path when the app declares none.
 * Host apps do **not** need to register `UISceneAccessory` manually.
 
 Dart usage is unchanged:

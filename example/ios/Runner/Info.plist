@@ -64,6 +64,17 @@
 					<string>Main</string>
 				</dict>
 			</array>
+			<key>UIWindowSceneSessionRoleExternalDisplayNonInteractive</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneDelegateClassName</key>
+					<string>ExternalDisplaySceneDelegate</string>
+					<key>UISceneConfigurationName</key>
+					<string>external</string>
+				</dict>
+			</array>
 		</dict>
 	</dict>
 </dict>
