@@ -211,13 +211,15 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin {
         mainViewEvents?(true)
     }
 
-    /// 外接 scene 斷開時清理，並停用 accessory
+    /// 外接 scene 斷開時清理
+    ///
+    /// The accessory stays enabled. When a display is plugged in, the system can
+    /// connect the scene, disconnect it and connect it again within 100 ms; disabling
+    /// the accessory at that disconnect stops the second connection, and the display
+    /// stays empty until it is unplugged and plugged in again.
     @available(iOS 27.0, *)
     static func handleExternalSceneDidDisconnect() {
         tearDownExternalSession(notifyUnplug: true)
-        if let registration = sceneAccessoryRegistration as? UISceneAccessoryRegistration {
-            registration.isEnabled = false
-        }
     }
 
     /// 將外接 Flutter 內容掛到指定的 UIWindowScene
