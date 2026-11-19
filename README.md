@@ -43,6 +43,8 @@ await externalDisplay.createWindow({String? title, bool? fullscreen, int? width,
 
 * `targetScreen`: Display screen index (which screen to show the window on)
 
+A windowed window opens with the size and position it last had, on the screen it was on: AppKit saves them on each move and at the end of each resize. `width`, `height` and `targetScreen` then apply only when no frame is saved (first use).
+
 #### Destroy Window (macOS-only)
 
 ```dart

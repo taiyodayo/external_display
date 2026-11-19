@@ -10,6 +10,10 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
     public static var receiveParameters:FlutterEventChannel?
     public static var sendParameters:FlutterMethodChannel?
     public static var externalWindow: NSWindow?
+
+    /// AppKit saves the external window's frame in the user defaults under this name
+    /// on each move and at the end of each resize, so the frame also survives a crash.
+    static let frameAutosaveName = "External Window"
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         // 建立 Flutter EventChannel
@@ -94,7 +98,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                         ExternalDisplayPlugin.externalWindow?.title = title
                         ExternalDisplayPlugin.externalWindow?.contentViewController = externalViewController
                         ExternalDisplayPlugin.externalWindow?.isReleasedWhenClosed = false
-                        ExternalDisplayPlugin.externalWindow?.setFrameAutosaveName("External Window")
+                        ExternalDisplayPlugin.externalWindow?.setFrameAutosaveName(ExternalDisplayPlugin.frameAutosaveName)
                         ExternalDisplayPlugin.externalWindow?.delegate = self;
                         
                         NotificationCenter.default.addObserver(
@@ -113,7 +117,13 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                     }
                         
                     ExternalDisplayPlugin.externalWindow?.orderFront(nil)
-                    ExternalDisplayPlugin.externalWindow?.setFrame(frame, display: true)
+                    // Windowed, the window opens where it was last left, on whichever
+                    // screen that was: the saved frame, which AppKit moves back onto a
+                    // screen when it is off all of them. `frame`, on `targetScreen`, is
+                    // the default for a first use (taiyodayo/maiTalk#1970).
+                    if fullscreen || ExternalDisplayPlugin.externalWindow?.setFrameUsingName(ExternalDisplayPlugin.frameAutosaveName) != true {
+                        ExternalDisplayPlugin.externalWindow?.setFrame(frame, display: true)
+                    }
 
                     if (fullscreen) {
                         ExternalDisplayPlugin.externalWindow?.toggleFullScreen(nil)
