@@ -59,8 +59,8 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                     let index = max(0, min(screenIndex, screens.count - 1))
                     let targetScreen = screens[index]
 
-                    // Place the audience window ON the target screen. Fullscreen
-                    // covers it; windowed is clamped to the visible frame and
+                    // The default frame, ON the target screen. Fullscreen covers it;
+                    // windowed (no saved frame) is clamped to the visible frame and
                     // centred, so on a single-monitor Mac (no projector) it never
                     // lands off-screen. The old `origin.y = maxY` pushed the window
                     // above the screen — invisible on a one-screen setup.
