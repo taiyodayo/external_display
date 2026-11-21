@@ -45,6 +45,8 @@ await externalDisplay.createWindow({String? title, bool? fullscreen, int? width,
 
 A windowed window opens with the size and position it last had, on the screen it was on: AppKit saves them on each move and at the end of each resize. `width`, `height` and `targetScreen` then apply only when no frame is saved (first use). An open with `fullscreen: true` saves the whole screen as that frame.
 
+A window that is open when the app quits or is killed opens again at the next launch, with the same title, when the main page starts listening for the plug status; it sends the same plug status as `createWindow`. `destroyWindow`, the window's close button and ⌘W leave it closed.
+
 #### Destroy Window (macOS-only)
 
 ```dart

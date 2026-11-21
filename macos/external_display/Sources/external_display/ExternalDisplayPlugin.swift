@@ -14,15 +14,24 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
     /// AppKit saves the external window's frame in the user defaults under this name
     /// on each move and at the end of each resize, so the frame also survives a crash.
     static let frameAutosaveName = "External Window"
+
+    /// The window's title, in the user defaults, while the window is open. The operator
+    /// closing the window removes it; the app quitting or being killed does not, and
+    /// `MainViewHandler.onListen` opens the window again at the next launch
+    /// (taiyodayo/maiTalk#2002).
+    static let openDefaultsKey = "External Window Open"
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         // 建立 Flutter EventChannel
         let onDisplayChange = FlutterEventChannel(name: "monitorStateListener", binaryMessenger: registrar.messenger)
-        onDisplayChange.setStreamHandler(MainViewHandler())
+        let plugin = ExternalDisplayPlugin()
+        // Only the main page's engine opens the window again at launch. The external
+        // window's engine registers here too, while its window is being built.
+        onDisplayChange.setStreamHandler(MainViewHandler(plugin: externalWindow == nil ? plugin : nil))
         
         // 建立 Flutter MethodChannel
         let connect = FlutterMethodChannel(name: "displayController", binaryMessenger: registrar.messenger)
-        registrar.addMethodCallDelegate(ExternalDisplayPlugin(), channel: connect)
+        registrar.addMethodCallDelegate(plugin, channel: connect)
     }
 
     // 接收主頁面的命令和參數
@@ -129,12 +138,16 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                         ExternalDisplayPlugin.externalWindow?.toggleFullScreen(nil)
                     }
 
+                    // Last: a launch that dies while the window opens does not open it
+                    // again at the next one.
+                    UserDefaults.standard.set(title, forKey: ExternalDisplayPlugin.openDefaultsKey)
                     ExternalDisplayPlugin.mainViewEvents?(true)
                 }
 
                 result(true)
             
             case "destroyWindow":
+                UserDefaults.standard.removeObject(forKey: ExternalDisplayPlugin.openDefaultsKey)
                 if (ExternalDisplayPlugin.externalWindow != nil) {
                     ExternalDisplayPlugin.externalWindow?.close()
                     return result(true)
@@ -187,6 +200,14 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
         ExternalDisplayPlugin.mainViewEvents?(false)
     }
 
+    /// The operator closes the window (its close button, ⌘W): it stays closed at the
+    /// next launch. AppKit does not ask when the window closes with the app: `close()`
+    /// from the observer in `createWindow`, or a quit.
+    public func windowShouldClose(_: NSWindow) -> Bool {
+        UserDefaults.standard.removeObject(forKey: ExternalDisplayPlugin.openDefaultsKey)
+        return true
+    }
+
     /// Whether the external window closes with `window`: only when `window` is another
     /// window that hosts a Flutter view, i.e. the app's own window.
     ///
@@ -213,10 +234,27 @@ public class ExternalDisplaySendParameters: NSObject, FlutterPlugin {
 
 // 主頁面 Flutter 開始和停止對 swift 傳送資料的監控
 public class MainViewHandler: NSObject, FlutterStreamHandler {
+    /// The main page's method-call handler, which is also the external window's delegate;
+    /// nil on the external window's own engine.
+    private let plugin: ExternalDisplayPlugin?
+
+    init(plugin: ExternalDisplayPlugin?) {
+        self.plugin = plugin
+    }
+
     // 主頁面 Flutter 的開始監控 swift 傳回的資料
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         ExternalDisplayPlugin.mainViewEvents = events
-        
+
+        // The window was open when the app last quit or was killed: open it again, as
+        // `createWindow` from the main page would. The value is taken, and `createWindow`
+        // writes it back once the window is open.
+        let defaults = UserDefaults.standard
+        if let plugin, let title = defaults.string(forKey: ExternalDisplayPlugin.openDefaultsKey) {
+            defaults.removeObject(forKey: ExternalDisplayPlugin.openDefaultsKey)
+            plugin.handle(FlutterMethodCall(methodName: "createWindow", arguments: ["title": title]), result: { _ in })
+        }
+
         return nil
     }
     
