@@ -220,7 +220,22 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
             NotificationCenter.default.removeObserver(observer)
             willCloseObserver = nil
         }
+        // The saved windowed frame (AppKit keeps it while in full screen) outlives the window.
+        let frameKey = "NSWindow Frame \(frameAutosaveName)"
+        let savedFrame = UserDefaults.standard.string(forKey: frameKey)
         window.close()
+        // AppKit drops a close that arrives while the window enters full screen (maiTalk
+        // HUI_MODEL D13 (9)): take it off screen anyway, and send the unplug the close would.
+        if window.isVisible {
+            window.orderOut(nil)
+            mainViewEvents?(false)
+        }
+        // In full screen the window lives on until its exit ends (about 50 ms) and would keep
+        // the autosave name from the next window: free it, and keep the saved frame.
+        window.setFrameAutosaveName("")
+        if let savedFrame, UserDefaults.standard.string(forKey: frameKey) == nil {
+            UserDefaults.standard.set(savedFrame, forKey: frameKey)
+        }
         window.delegate = nil
         let controller = window.contentViewController as? FlutterViewController
         window.contentViewController = nil
