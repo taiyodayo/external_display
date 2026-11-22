@@ -221,8 +221,6 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
             willCloseObserver = nil
         }
         window.close()
-        // The next window takes the saved frame under this name.
-        window.setFrameAutosaveName("")
         window.delegate = nil
         let controller = window.contentViewController as? FlutterViewController
         window.contentViewController = nil
