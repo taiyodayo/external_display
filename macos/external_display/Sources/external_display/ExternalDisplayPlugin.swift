@@ -27,6 +27,9 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
 
     /// The `willClose` observer `createWindow` adds with each new window.
     private static var willCloseObserver: NSObjectProtocol?
+
+    /// Set by `windowWillClose`: whether a `close()` really closed the window.
+    private static var windowDidClose = false
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         // 建立 Flutter EventChannel
@@ -223,10 +226,12 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
         // The saved windowed frame (AppKit keeps it while in full screen) outlives the window.
         let frameKey = "NSWindow Frame \(frameAutosaveName)"
         let savedFrame = UserDefaults.standard.string(forKey: frameKey)
+        windowDidClose = false
         window.close()
         // AppKit drops a close that arrives while the window enters full screen (maiTalk
-        // HUI_MODEL D13 (9)): take it off screen anyway, and send the unplug the close would.
-        if window.isVisible {
+        // HUI_MODEL D13 (9)): no `windowWillClose` came. Take the window off screen anyway,
+        // and send the unplug the close would.
+        if !windowDidClose {
             window.orderOut(nil)
             mainViewEvents?(false)
         }
@@ -249,6 +254,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
     }
 
     public func windowWillClose(_: Notification) {
+        ExternalDisplayPlugin.windowDidClose = true
         ExternalDisplayPlugin.mainViewEvents?(false)
     }
 
