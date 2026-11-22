@@ -44,6 +44,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
   private lateinit var displayManager : DisplayManager
   private val activePresentations = mutableMapOf<String, Presentation>()
   private val activeEngines = mutableMapOf<String, FlutterEngine>()
+  private val activeViews = mutableMapOf<String, FlutterView>()
 
   // 處理監控插入和拔出外部顯示器
   private val displayListener = object : DisplayManager.DisplayListener {
@@ -144,6 +145,7 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
 
             val flutterView = FlutterView(context)
             flutterView.attachToFlutterEngine(flutterEngine)
+            activeViews[routeName] = flutterView
 
             val view = FrameLayout(context)
             view.addView(flutterView, FrameLayout.LayoutParams(
@@ -169,12 +171,18 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
 
         val presentation = activePresentations.remove(routeName)
         presentation?.dismiss()
+        activeViews.remove(routeName)?.detachFromFlutterEngine()
 
         val engine = activeEngines.remove(routeName)
         if (engine != null) {
           engine.destroy()
           FlutterEngineCache.getInstance().remove(routeName)
         }
+        // The destroyed engine's page never cancels its stream, so its sink stays set:
+        // the next wait would answer `true` before the new page exists, and sends would
+        // report success into a dead engine (taiyodayo/maiTalk#2024).
+        externalViewEvents = null
+        connectReturn = null
         result.success(true)
       }
 

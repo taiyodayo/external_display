@@ -20,6 +20,13 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
     /// `MainViewHandler.onListen` opens the window again at the next launch
     /// (taiyodayo/maiTalk#2002).
     static let openDefaultsKey = "External Window Open"
+
+    /// Called by `disconnect` first, while the window and its engine still exist, so the
+    /// host can let go of what it attached to the window (taiyodayo/maiTalk#2024).
+    public static var willReleaseExternalWindow: ((NSWindow) -> Void)?
+
+    /// The `willClose` observer `createWindow` adds with each new window.
+    private static var willCloseObserver: NSObjectProtocol?
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         // 建立 Flutter EventChannel
@@ -110,7 +117,7 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                         ExternalDisplayPlugin.externalWindow?.setFrameAutosaveName(ExternalDisplayPlugin.frameAutosaveName)
                         ExternalDisplayPlugin.externalWindow?.delegate = self;
                         
-                        NotificationCenter.default.addObserver(
+                        ExternalDisplayPlugin.willCloseObserver = NotificationCenter.default.addObserver(
                             forName: NSWindow.willCloseNotification,
                             object: nil,
                             queue: .main
@@ -154,6 +161,14 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
                 }
                 result(false)
             
+            // Release the window and its engine: an engine that failed to start is
+            // not reused, and the next `createWindow` builds a new one
+            // (taiyodayo/maiTalk#2024). `destroyWindow` keeps both for an instant reopen.
+            case "disconnect":
+                guard let window = ExternalDisplayPlugin.externalWindow else { return result(false) }
+                ExternalDisplayPlugin.release(window)
+                result(true)
+
             case "connect":
                 if (ExternalDisplayPlugin.externalWindow != nil) {
                     let size = ExternalDisplayPlugin.externalWindow?.contentView?.frame.size ?? NSSize(width: 1920, height: 1080)
@@ -196,6 +211,30 @@ public class ExternalDisplayPlugin: NSObject, FlutterPlugin, NSWindowDelegate {
         }
     }
     
+    /// Closes [window] for good: the close emits the unplug as a close does, then the
+    /// window, its engine and every static that points into that engine go.
+    static func release(_ window: NSWindow) {
+        willReleaseExternalWindow?(window)
+        UserDefaults.standard.removeObject(forKey: openDefaultsKey)
+        if let observer = willCloseObserver {
+            NotificationCenter.default.removeObserver(observer)
+            willCloseObserver = nil
+        }
+        window.close()
+        // The next window takes the saved frame under this name.
+        window.setFrameAutosaveName("")
+        window.delegate = nil
+        let controller = window.contentViewController as? FlutterViewController
+        window.contentViewController = nil
+        controller?.engine.shutDownEngine()
+        externalWindow = nil
+        externalViewEvents = nil
+        connectReturn = nil
+        receiveParameters?.setStreamHandler(nil)
+        receiveParameters = nil
+        sendParameters = nil
+    }
+
     public func windowWillClose(_: Notification) {
         ExternalDisplayPlugin.mainViewEvents?(false)
     }

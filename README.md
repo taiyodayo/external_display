@@ -53,6 +53,10 @@ A window that is open when the app quits or is killed opens again at the next la
 await externalDisplay.destroyWindow()
 ```
 
+The window closes and is kept, with its engine, so the next `createWindow` shows it again at once.
+
+To release the window and its engine instead, so the next `createWindow` starts a new engine, call `disconnect()`. The host's `ExternalDisplayPlugin.willReleaseExternalWindow` runs first, while the window still exists.
+
 ---
 
 ### iOS
@@ -123,6 +127,14 @@ await externalDisplay.connect({String? routeName, int? targetScreen});
 
 * `targetScreen`: Specifies which display screen to use (defaults to the last connected screen).
 > ⚠️ Android-only parameter (has no effect on other platforms).
+
+### Disconnecting from the External Display
+
+```dart
+await externalDisplay.disconnect({String? routeName});
+```
+
+Removes the external view and destroys its engine; the next `connect` starts a new one. On macOS it closes the window and releases its engine.
 
 
 ---
