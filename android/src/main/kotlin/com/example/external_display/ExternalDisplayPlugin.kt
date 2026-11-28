@@ -2,10 +2,12 @@ package com.example.external_display
 
 import android.app.Presentation
 import android.content.Context
+import android.content.res.Configuration
 import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.DisplayMetrics
 import android.widget.FrameLayout
 import android.view.ViewGroup
 import android.view.Display
@@ -81,6 +83,17 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
     methodChannel.setMethodCallHandler(this)
   }
 
+  /// The density of the external view: one logical pixel is one display pixel up to
+  /// 1440p and two at 4K, so a 1920x1080 display is 1920x1080 logical pixels, as on iOS.
+  /// The density Android reports for an external display comes from the physical size in
+  /// its EDID (100 dpi for one 1080p television), so it differs from display to display.
+  /// Read once per connect: a mode change while connected keeps the density.
+  private fun externalViewDensityDpi(resolution: Map<String, Double>): Int {
+    val shortSide = minOf(resolution.getValue("width"), resolution.getValue("height"))
+    val scale = maxOf(1, Math.round(shortSide / 1080.0).toInt())
+    return DisplayMetrics.DENSITY_DEFAULT * scale
+  }
+
   // 接收主頁面的命令和參數
   override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
     when (call.method) {
@@ -143,17 +156,23 @@ class ExternalDisplayPlugin: FlutterPlugin, MethodCallHandler, StreamHandler, Ac
             val sendParameters = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "sendParameters")
             sendParameters.setMethodCallHandler(ExternalViewHandler(this))
 
-            val flutterView = FlutterView(context)
+            val presentation = Presentation(context, display)
+            // FlutterView takes its device pixel ratio from its context's density. The
+            // Activity's context has the phone's density, which laid a 1920x1080 display
+            // out as 853x480 logical pixels (taiyodayo/maiTalk#2141).
+            val viewContext = presentation.context.createConfigurationContext(
+              Configuration().apply { densityDpi = externalViewDensityDpi(resolution) }
+            )
+            val flutterView = FlutterView(viewContext)
             flutterView.attachToFlutterEngine(flutterEngine)
             activeViews[routeName] = flutterView
 
-            val view = FrameLayout(context)
+            val view = FrameLayout(viewContext)
             view.addView(flutterView, FrameLayout.LayoutParams(
               ViewGroup.LayoutParams.MATCH_PARENT,
               ViewGroup.LayoutParams.MATCH_PARENT
             ))
 
-            val presentation = Presentation(context, display)
             presentation.setContentView(view)
             presentation.show()
             activePresentations[routeName] = presentation
